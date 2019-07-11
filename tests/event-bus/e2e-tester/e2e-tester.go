@@ -282,23 +282,6 @@ func shutdown(code int, subscriber *subscriberDetails) {
 			log.Printf("Warning: Delete Event Activation falied: %v", err)
 		}
 	}
-	//needed if Istio injection will be enabled for tester cause the kyma script which runs the tests checks the pod status
-	/*
-		if _, err := clientK8S.CoreV1().Pods("kyma-system").Get(testerName, metav1.GetOptions{}); err != nil {
-			log.Printf("Cannot get my pod: %v", err)
-		} else {
-			if code == success {
-				body := "{\"status\":{\"phase\":\"" + v1.PodSucceeded + "\"}}"
-				_, err = clientK8S.CoreV1().Pods("kyma-system").Patch(testerName, types.MergePatchType, []byte(body), "status")
-			} else {
-				body := "{\"status\":{\"phase\":\"" + v1.PodFailed + "\"}}"
-				_, err = clientK8S.CoreV1().Pods("kyma-system").Patch(testerName, types.MergePatchType, []byte(body), "status")
-			}
-			if err != nil {
-				log.Printf("Cannot set status: %v", err)
-			}
-		}
-	*/
 	os.Exit(code)
 }
 
