@@ -138,7 +138,6 @@ func (f *eventBusFlow) createSubscriber() error {
 		if _, err := f.k8sInterface.CoreV1().Services(f.namespace).Create(util.NewSubscriberService()); err != nil {
 			f.log.Errorf("Create Subscriber service failed: %v\n", err)
 		}
-		time.Sleep(30 * time.Second)
 
 		for i := 0; i < 60; i++ {
 			var podReady bool

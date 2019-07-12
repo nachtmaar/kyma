@@ -124,7 +124,6 @@ func main() {
 		log.Println("Error: Cannot create the event activation")
 		shutdown(fail, &subDetails)
 	}
-	time.Sleep(5 * time.Second)
 
 	log.Println("Create a test subscriptions")
 	subClient, err = subscriptionClientSet.NewForConfig(config)
@@ -136,7 +135,6 @@ func main() {
 		log.Println("Error: Cannot create Kyma subscription")
 		shutdown(fail, &subDetails)
 	}
-	time.Sleep(5 * time.Second)
 
 	log.Println("Create a headers test subscription")
 	subClient, err = subscriptionClientSet.NewForConfig(config)
@@ -148,7 +146,6 @@ func main() {
 		log.Println("Error: Cannot create Kyma headers subscription")
 		shutdown(fail, &subDetails)
 	}
-	time.Sleep(5 * time.Second)
 
 	log.Println("Create Subscriber")
 	if err := createSubscriber(util.SubscriberName, subDetails.subscriberNamespace, subDetails.subscriberImage); err != nil {
