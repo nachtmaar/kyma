@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:2abc390f92f9fa449eeca529b708a22c76be09a03917b084efa616c93f0e1d04"
+  name = "github.com/avast/retry-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "88ef2130df9642aa2849152b2985af9ba3676ee9"
+  version = "v2.3.0"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -427,6 +435,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/avast/retry-go",
     "github.com/golang/lint/golint",
     "github.com/kyma-project/kyma/components/event-bus/api/publish",
     "github.com/kyma-project/kyma/components/event-bus/api/push/eventing.kyma-project.io/v1alpha1",
