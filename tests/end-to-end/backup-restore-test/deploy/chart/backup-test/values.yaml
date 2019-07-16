@@ -5,4 +5,4 @@ nameOverride: backup-test
 
 image:
   dir: develop/
-  tag: 164eb8ac
+  tag: PR-4893
