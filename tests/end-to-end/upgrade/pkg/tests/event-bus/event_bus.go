@@ -148,9 +148,8 @@ func (f *eventBusFlow) createSubscriber() error {
 			}
 			if podReady {
 				return nil
-			} else {
-				return fmt.Errorf("subscriber Pod not ready")
 			}
+			return fmt.Errorf("subscriber Pod not ready")
 		})
 		if err == nil {
 			f.log.Infof("Subscriber created")
@@ -169,9 +168,8 @@ func (f *eventBusFlow) createEventActivation() error {
 		}
 		if !strings.Contains(err.Error(), "already exists") {
 			return fmt.Errorf("error in creating event activation - %v", err)
-		} else {
-			return nil
 		}
+		return nil
 	})
 }
 
@@ -208,9 +206,8 @@ func (f *eventBusFlow) checkPublisherStatus() error {
 	return retry.Do(func() error {
 		if err := checkStatus(publishStatusEndpointURL); err != nil {
 			return fmt.Errorf("publisher not ready: %v", err)
-		} else {
-			return nil
 		}
+		return nil
 	})
 }
 
@@ -238,9 +235,8 @@ func (f *eventBusFlow) publishTestEvent() error {
 	return retry.Do(func() error {
 		if _, err := f.publish(publishEventEndpointURL); err != nil {
 			return fmt.Errorf("publish event failed: %v", err)
-		} else {
-			return nil
 		}
+		return nil
 	})
 }
 
