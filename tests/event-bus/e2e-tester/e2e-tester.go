@@ -95,7 +95,9 @@ func main() {
 
 	if flags.NFlag() == 0 || subDetails.subscriberImage == "" {
 
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		if _, err := fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0]); err != nil {
+			panic(err)
+		}
 		flags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -523,7 +525,7 @@ func createSubscriber(subscriberName string, subscriberNamespace string, sbscrIm
 			// check if pod is ready
 			for _, pod := range pods.Items {
 				if podReady = isPodReady(&pod); !podReady {
-					podNotReady = fmt.Errorf("Subscriber pod not ready: %+v;", pod)
+					podNotReady = fmt.Errorf("subscriber pod not ready: %+v", pod)
 					break
 				}
 			}
@@ -572,7 +574,7 @@ func (subDetails *subscriberDetails) checkSubscriberStatus() bool {
 		if res, err := http.Get(subDetails.subscriberStatusEndpointURL); err != nil {
 			return err
 		} else if !checkStatusCode(res, http.StatusOK) {
-			return fmt.Errorf("Subscriber Server Status request returns: %v", res)
+			return fmt.Errorf("subscriber Server Status request returns: %v", res)
 		}
 		return nil
 	})
@@ -587,7 +589,7 @@ func (subDetails *subscriberDetails) checkSubscriber3Status() bool {
 		if res, err := http.Get(subDetails.subscriber3StatusEndpointURL); err != nil {
 			return err
 		} else if !checkStatusCode(res, http.StatusOK) {
-			return fmt.Errorf("Subscriber 3 Server Status request returns: %v", res)
+			return fmt.Errorf("subscriber 3 Server Status request returns: %v", res)
 		}
 		return nil
 	})
@@ -617,7 +619,7 @@ func (subDetails *subscriberDetails) checkSubscriptionReady(subscriptionName str
 			return err
 		}
 		if isReady = kySub.HasCondition(activatedCondition); !isReady {
-			return fmt.Errorf("Subscription %v is not ready yet", subscriptionName)
+			return fmt.Errorf("subscription %v is not ready yet", subscriptionName)
 		}
 		return nil
 	})

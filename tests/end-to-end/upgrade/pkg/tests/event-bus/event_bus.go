@@ -255,13 +255,17 @@ func (f *eventBusFlow) publish(publishEventURL string) (*api.PublishResponse, er
 		return nil, err
 	}
 	respObj := &api.PublishResponse{}
-	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
-	err = json.Unmarshal(body, &respObj)
-	if err != nil {
+	var body []byte
+	if body, err = ioutil.ReadAll(res.Body); err != nil {
 		f.log.Errorf("Unmarshal error: %v", err)
 		return nil, err
 	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			f.log.Error(err)
+		}
+	}()
+	err = json.Unmarshal(body, &respObj)
 	f.log.Infof("Publish response object: %+v", respObj)
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
@@ -282,11 +286,20 @@ func (f *eventBusFlow) checkSubscriberReceivedEvent() error {
 		if err := verifyStatusCode(res, 200); err != nil {
 			return fmt.Errorf("get request failed: %v", err)
 		}
-		body, err := ioutil.ReadAll(res.Body)
+		var body []byte
+		if body, err = ioutil.ReadAll(res.Body); err != nil {
+			return err
+		}
 		var resp string
-		json.Unmarshal(body, &resp)
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return err
+		}
 		f.log.Infof("Subscriber response: %s\n", resp)
-		res.Body.Close()
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				f.log.Error(err)
+			}
+		}()
 		if len(resp) == 0 { // no event received by subscriber
 			return fmt.Errorf("no event received by subscriber: %v", resp)
 		}
@@ -341,7 +354,11 @@ func checkStatus(statusEndpointURL string) error {
 }
 
 func (f *eventBusFlow) dumpResponse(resp *http.Response) {
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			f.log.Error(err)
+		}
+	}()
 	dump, err := httputil.DumpResponse(resp, true)
 	if err != nil {
 		f.log.Error(err)
