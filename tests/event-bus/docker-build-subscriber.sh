@@ -14,6 +14,6 @@ cp -R ./vendor ./e2e-subscriber/docker/image/
 cp -R ./licenses ./e2e-subscriber/docker/image/
 	
 tagName="${NAME}:${VERSION}"
-docker build --no-cache --build-arg version=${VERSION} -t ${tagName} --label version=${VERSION} --label component=${COMPONENT} --rm ./e2e-subscriber/docker/image
+docker build --build-arg version=${VERSION} -t ${tagName} --label version=${VERSION} --label component=${COMPONENT} --rm ./e2e-subscriber/docker/image
 rm -rf ./e2e-subscriber/docker
 echo -e "Docker image with the tag [ ${tagName} ] has been built successfully ..."

@@ -42,11 +42,9 @@ const (
 	eventTypeHeader        = "ce-type"
 	eventTypeVersionHeader = "ce-eventtypeversion"
 	customHeader           = "ce-xcustomheader"
-	specVersionHeader      = "ce-specversion"
 
 	ceSourceIDHeaderValue         = "override-source-ID"
 	ceEventTypeHeaderValue        = "override-event-type"
-	ceSpecVersionHeaderValue      = "0.3"
 	contentTypeHeaderValue        = "application/json"
 	ceEventTypeVersionHeaderValue = "override-event-type-version"
 	customHeaderValue             = "Ce-X-custom-header-value"
@@ -89,7 +87,9 @@ func main() {
 	//Initialise subscriber
 	flags.StringVar(&subDetails.subscriberImage, "subscriber-image", "", "subscriber Docker `image` name")
 	flags.StringVar(&subDetails.subscriberNamespace, "subscriber-ns", "default", "k8s `namespace` in which subscriber test app is running")
-	flags.Parse(os.Args[1:])
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		panic(err)
+	}
 
 	initSubscriberUrls(&subDetails)
 
@@ -284,7 +284,14 @@ func publishTestEvent(publishEventURL string) (*api.Response, error) {
 	}
 	respObj := &api.Response{}
 	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
 	err = json.Unmarshal(body, &respObj)
 	if err != nil {
 		log.Printf("Unmarshal error: %v", err)
@@ -304,6 +311,9 @@ func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", publishEventURL, strings.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Add(sourceHeader, ceSourceIDHeaderValue)
 	req.Header.Add(eventTypeHeader, ceEventTypeHeaderValue)
 	req.Header.Add(eventTypeVersionHeader, ceEventTypeVersionHeaderValue)
@@ -320,7 +330,14 @@ func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 	}
 	respObj := &api.Response{}
 	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Print(err)
+		}
+	}()
 	err = json.Unmarshal(body, &respObj)
 	if err != nil {
 		log.Printf("Unmarshal error: %v", err)
@@ -344,10 +361,20 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEvent() error {
 			return err
 		}
 		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 		var resp string
 		err = json.Unmarshal(body, &resp)
+		if err != nil {
+			return err
+		}
 		log.Printf("Subscriber response: %s\n", resp)
-		res.Body.Close()
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				log.Println(err)
+			}
+		}()
 		if len(resp) == 0 {
 			return errors.New("no event received by subscriber")
 		}
@@ -371,10 +398,19 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 			return err
 		}
 		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 		var resp map[string][]string
-		json.Unmarshal(body, &resp)
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return err
+		}
 		log.Printf("Subscriber 3 response: %v\n", resp)
-		res.Body.Close()
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				log.Println(err)
+			}
+		}()
 		if len(resp) == 0 {
 			return errors.New("no event received by subscriber")
 		}
@@ -396,7 +432,15 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 		}
 
 		for _, testData := range testDataSets {
+			// panic: runtime error: index out of range
+			// main.(*subscriberDetails).checkSubscriberReceivedEventHeaders.func1(0x0, 0x0)
+			// /go/src/github.com/kyma-project/kyma/tests/event-bus/e2e-tester/e2e-tester.go:435 +0xb37
 			if lowerResponseHeaders[testData.headerKey][0] != testData.headerExpectedValue {
+				if _, ok := lowerResponseHeaders[testData.headerKey]; !ok {
+					log.Printf("map %+v does not contain key %v\n", lowerResponseHeaders, testData.headerKey)
+					panic("foo")
+					// return fmt.Errorf("map %+v does not contain key %v", lowerResponseHeaders, testData.headerKey)
+				}
 				return fmt.Errorf("wrong response: %s, want: %s", lowerResponseHeaders[testData.headerKey][0], testData.headerExpectedValue)
 			}
 		}
@@ -412,7 +456,11 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 }
 
 func dumpResponse(resp *http.Response) {
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	_, err := httputil.DumpResponse(resp, true)
 	if err != nil {
 		log.Fatal(err)
