@@ -191,6 +191,7 @@ function injectTestingBundles() {
 }
 
 function removeTestingBundles() {
+    echo "sigerr handler called"
     kubectl delete configmap ${TESTING_BUNDLES_MAP_NAME} -n kyma-system
     log "Testing bundles removed" green
 }
