@@ -68,15 +68,13 @@ then
         namespace: {{.metadata.namespace}}
 {{- end}}')
   echo "WARNING: following tests will be skipped due to the lack of static users:"
-  ${kc} get testdefinitions --all-namespaces -l 'require-static-users=true' -o=go-template --template='{{- range .items}}{{printf " - %s\n" .metadata.name}}{{- end}}'
+  echo "$(${kc} get testdefinitions --all-namespaces -l 'require-static-users=true' -o=go-template --template='{{- range .items}}{{printf " - %s\n" .metadata.name}}{{- end}}')"
 fi
 
 # creates a config map which provides the testing bundles
 injectTestingBundles
-shout "installing sigerr handler"
 trap removeTestingBundles ERR EXIT
 
-shout "create ClusterTestSuite"
 cat <<EOF | ${kc} apply -f -
 apiVersion: testing.kyma-project.io/v1alpha1
 kind: ClusterTestSuite
@@ -89,22 +87,18 @@ spec:
   concurrency: ${CONCURRENCY}
 ${matchTests}
 EOF
-shout "create ClusterTestSuite [done]"
 
 startTime=$(date +%s)
 
 testExitCode=0
 previousPrintTime=-1
 
-shout "starting while loop"
 while true
 do
-    echo -n "."
     currTime=$(date +%s)
-    statusSucceeded=$(${kc} get cts "${suiteName}" -ojsonpath="{.status.conditions[?(@.type=='Succeeded')]}")
-    statusFailed=$(${kc} get cts "${suiteName}" -ojsonpath="{.status.conditions[?(@.type=='Failed')]}")
-    statusError=$(${kc} get cts "${suiteName}" -ojsonpath="{.status.conditions[?(@.type=='Error')]}" )
-    ${kc} get cts "${suiteName}" -oyaml
+    statusSucceeded=$(${kc} get cts ${suiteName}  -ojsonpath="{.status.conditions[?(@.type=='Succeeded')]}")
+    statusFailed=$(${kc} get cts ${suiteName}  -ojsonpath="{.status.conditions[?(@.type=='Failed')]}")
+    statusError=$(${kc} get cts  ${suiteName} -ojsonpath="{.status.conditions[?(@.type=='Error')]}" )
 
     if [[ "${statusSucceeded}" == *"True"* ]]; then
        echo "Test suite '${suiteName}' succeeded."
@@ -130,7 +124,7 @@ do
         testExitCode=1
         break
     fi
-    if (( previousPrintTime != min )); then
+    if (( $previousPrintTime != $min )); then
         echo "ClusterTestSuite not finished. Waiting..."
         previousPrintTime=${min}
     fi
@@ -138,17 +132,17 @@ do
 done
 
 echo "Test summary"
-kubectl get cts "${suiteName}" -o=go-template --template='{{range .status.results}}{{printf "Test status: %s - %s" .name .status }}{{ if gt (len .executions) 1 }}{{ print " (Retried)" }}{{end}}{{print "\n"}}{{end}}'
+kubectl get cts  ${suiteName} -o=go-template --template='{{range .status.results}}{{printf "Test status: %s - %s" .name .status }}{{ if gt (len .executions) 1 }}{{ print " (Retried)" }}{{end}}{{print "\n"}}{{end}}'
 
-waitForTerminationAndPrintLogs "${suiteName}"
+waitForTerminationAndPrintLogs ${suiteName}
 cleanupExitCode=$?
 
 echo "ClusterTestSuite details:"
-kubectl get cts "${suiteName}" -oyaml
+kubectl get cts ${suiteName} -oyaml
 
-kubectl delete cts "${suiteName}"
+kubectl delete cts ${suiteName}
 
 printImagesWithLatestTag
 latestTagExitCode=$?
 
-exit $((testExitCode + cleanupExitCode + latestTagExitCode))
+exit $(($testExitCode + $cleanupExitCode + $latestTagExitCode))
