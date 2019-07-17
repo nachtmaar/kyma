@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
 	"github.com/avast/retry-go"
 	publishApi "github.com/kyma-project/kyma/components/event-bus/api/publish"
 	subApis "github.com/kyma-project/kyma/components/event-bus/api/push/eventing.kyma-project.io/v1alpha1"
@@ -12,12 +16,9 @@ import (
 	"github.com/kyma-project/kyma/components/event-bus/test/util"
 	"github.com/kyma-project/kyma/tests/end-to-end/backup-restore-test/utils/config"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
 	apiV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClientSet "k8s.io/client-go/kubernetes"
-	"net/http"
-	"strings"
 
 	"github.com/smartystreets/goconvey/convey"
 )
