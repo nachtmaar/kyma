@@ -73,8 +73,10 @@ fi
 
 # creates a config map which provides the testing bundles
 injectTestingBundles
+echo "installing sigerr handler"
 trap removeTestingBundles ERR EXIT
 
+echo "create ClusterTestSuite"
 cat <<EOF | ${kc} apply -f -
 apiVersion: testing.kyma-project.io/v1alpha1
 kind: ClusterTestSuite
@@ -87,14 +89,17 @@ spec:
   concurrency: ${CONCURRENCY}
 ${matchTests}
 EOF
+echo "create ClusterTestSuite [done]"
 
 startTime=$(date +%s)
 
 testExitCode=0
 previousPrintTime=-1
 
+echo "starting while loop"
 while true
 do
+    echo -n "."
     currTime=$(date +%s)
     statusSucceeded=$(${kc} get cts ${suiteName}  -ojsonpath="{.status.conditions[?(@.type=='Succeeded')]}")
     statusFailed=$(${kc} get cts ${suiteName}  -ojsonpath="{.status.conditions[?(@.type=='Failed')]}")
