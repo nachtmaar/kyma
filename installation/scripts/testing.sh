@@ -72,6 +72,7 @@ then
 fi
 
 # creates a config map which provides the testing bundles
+echo "before injectTestingBundles"
 injectTestingBundles
 echo "installing sigerr handler"
 trap removeTestingBundles ERR EXIT

@@ -24,7 +24,9 @@ cleanupHelmE2ERelease () {
 }
 
 # creates a config map which provides the testing bundles	
+echo "before injectTestingBundles e2e"
 injectTestingBundles	
+echo "e2e"
 
 testcase="${ROOT_PATH}"/../../tests/end-to-end/backup-restore-test/deploy/chart/backup-test
 release=$(basename "$testcase")
