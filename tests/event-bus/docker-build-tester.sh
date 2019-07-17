@@ -14,6 +14,6 @@ cp -R ./vendor ./e2e-tester/docker/image/
 cp -R ./licenses ./e2e-tester/docker/image/
 	
 tagName="${NAME}:${VERSION}"
-docker build --build-arg version=${VERSION} -t ${tagName} --label version=${VERSION} --label component=${COMPONENT} --rm ./e2e-tester/docker/image
+docker build --no-cache --build-arg version=${VERSION} -t ${tagName} --label version=${VERSION} --label component=${COMPONENT} --rm ./e2e-tester/docker/image
 rm -rf ./e2e-tester/docker
 echo -e "Docker image with the tag [ ${tagName} ] has been built successfully ..."
