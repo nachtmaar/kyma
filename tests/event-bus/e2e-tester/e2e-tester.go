@@ -51,9 +51,15 @@ const (
 )
 
 var (
-	clientK8S *kubernetes.Clientset
-	eaClient  *eaClientSet.Clientset
-	subClient *subscriptionClientSet.Clientset
+	clientK8S    *kubernetes.Clientset
+	eaClient     *eaClientSet.Clientset
+	subClient    *subscriptionClientSet.Clientset
+	retryOptions = []retry.Option{
+		retry.Attempts(11), // at max (100 * (1 << 11)) / 1000 = 204,8 sec
+		retry.OnRetry(func(n uint, err error) {
+			fmt.Printf(".")
+		}),
+	}
 )
 
 //Unexportable struct, encapsulates subscriber resource parameters
@@ -187,7 +193,7 @@ func main() {
 	err = retry.Do(func() error {
 		_, err := publishTestEvent(pubDetails.publishEventEndpointURL)
 		return err
-	})
+	}, retryOptions...)
 	if err != nil {
 		log.Printf("Error: Publish event failed: %v\n", err)
 		shutdown(fail, &subDetails)
@@ -203,7 +209,7 @@ func main() {
 	err = retry.Do(func() error {
 		_, err := publishHeadersTestEvent(pubDetails.publishEventEndpointURL)
 		return err
-	})
+	}, retryOptions...)
 	if err != nil {
 		log.Printf("Error: Publish headers event failed: %v\n", err)
 		shutdown(fail, &subDetails)
@@ -384,7 +390,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEvent() error {
 			return fmt.Errorf("wrong response: %s, want: %s", resp, "test-event-1")
 		}
 		return nil
-	}, retry.Attempts(12))
+	}, retryOptions...)
 }
 
 func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error {
@@ -449,7 +455,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 			return fmt.Errorf("wrong response: %s, can't be empty", lowerResponseHeaders[timeHeader][0])
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func dumpResponse(resp *http.Response) {
@@ -513,7 +519,7 @@ func createSubscriber(subscriberName string, subscriberNamespace string, sbscrIm
 			}
 			log.Println("Subscriber created")
 			return nil
-		})
+		}, retryOptions...)
 	}
 	return nil
 }
@@ -543,7 +549,7 @@ func createSubscription(subscriberNamespace string, subName string, subscriberEv
 			return err
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 // Check that the subscriber endpoint is reachable and returns a 200
@@ -554,7 +560,7 @@ func (subDetails *subscriberDetails) checkSubscriberStatus() error {
 			return err
 		}
 		return verifyStatusCode(res, http.StatusOK)
-	})
+	}, retryOptions...)
 }
 
 // Check that the subscriber3 endpoint is reachable and returns a 200
@@ -565,7 +571,7 @@ func (subDetails *subscriberDetails) checkSubscriber3Status() error {
 			return err
 		}
 		return verifyStatusCode(res, http.StatusOK)
-	})
+	}, retryOptions...)
 }
 
 // Check that the publisher endpoint is reachable and returns a 200
@@ -576,7 +582,7 @@ func (pubDetails *publisherDetails) checkPublisherStatus() error {
 			return err
 		}
 		return verifyStatusCode(res, http.StatusOK)
-	})
+	}, retryOptions...)
 }
 
 // Check that the subscription exists and has condition ready
@@ -592,5 +598,5 @@ func (subDetails *subscriberDetails) checkSubscriptionReady(subscriptionName str
 			return fmt.Errorf("subscription %v is not ready yet", subscriptionName)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
