@@ -55,7 +55,7 @@ var (
 	eaClient     *eaClientSet.Clientset
 	subClient    *subscriptionClientSet.Clientset
 	retryOptions = []retry.Option{
-		retry.Attempts(11), // at max (100 * (1 << 11)) / 1000 = 204,8 sec
+		retry.Attempts(12), // at max (100 * (1 << 11)) / 1000 = 409,6 sec
 		retry.OnRetry(func(n uint, err error) {
 			fmt.Printf(".")
 		}),
