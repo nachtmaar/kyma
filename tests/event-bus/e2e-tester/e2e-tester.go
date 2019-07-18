@@ -434,15 +434,10 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 		}
 
 		for _, testData := range testDataSets {
-			// panic: runtime error: index out of range
-			// main.(*subscriberDetails).checkSubscriberReceivedEventHeaders.func1(0x0, 0x0)
-			// /go/src/github.com/kyma-project/kyma/tests/event-bus/e2e-tester/e2e-tester.go:435 +0xb37
+			if _, ok := lowerResponseHeaders[testData.headerKey]; !ok {
+				return fmt.Errorf("map %v does not contain key %v", lowerResponseHeaders, testData.headerKey)
+			}
 			if lowerResponseHeaders[testData.headerKey][0] != testData.headerExpectedValue {
-				if _, ok := lowerResponseHeaders[testData.headerKey]; !ok {
-					log.Printf("map %+v does not contain key %v\n", lowerResponseHeaders, testData.headerKey)
-					panic("foo")
-					// return fmt.Errorf("map %+v does not contain key %v", lowerResponseHeaders, testData.headerKey)
-				}
 				return fmt.Errorf("wrong response: %s, want: %s", lowerResponseHeaders[testData.headerKey][0], testData.headerExpectedValue)
 			}
 		}
