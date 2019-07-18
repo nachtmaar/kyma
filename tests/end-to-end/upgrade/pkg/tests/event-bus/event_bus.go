@@ -33,7 +33,15 @@ const (
 	publishStatusEndpointURL = "http://event-bus-publish.kyma-system:8080/v1/status/ready"
 )
 
-var randomInt int
+var (
+	randomInt    int
+	retryOptions = []retry.Option{
+		retry.Attempts(11), // at max (100 * (1 << 11)) / 1000 = 204,8 sec
+		retry.OnRetry(func(n uint, err error) {
+			fmt.Printf(".")
+		}),
+	}
+)
 
 // UpgradeTest tests the Event Bus business logic after Kyma upgrade phase
 type UpgradeTest struct {
@@ -150,7 +158,7 @@ func (f *eventBusFlow) createSubscriber() error {
 				return nil
 			}
 			return fmt.Errorf("subscriber Pod not ready")
-		})
+		}, retryOptions...)
 		if err == nil {
 			f.log.Infof("Subscriber created")
 		}
@@ -170,7 +178,7 @@ func (f *eventBusFlow) createEventActivation() error {
 			return fmt.Errorf("error in creating event activation - %v", err)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) createSubscription() error {
@@ -197,7 +205,7 @@ func (f *eventBusFlow) checkSubscriberStatus() error {
 			return fmt.Errorf("subscriber Server Status request returns: %v", res)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) checkPublisherStatus() error {
@@ -208,7 +216,7 @@ func (f *eventBusFlow) checkPublisherStatus() error {
 			return fmt.Errorf("publisher not ready: %v", err)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) checkSubscriptionReady() error {
@@ -224,7 +232,7 @@ func (f *eventBusFlow) checkSubscriptionReady() error {
 			return nil
 		}
 		return fmt.Errorf("kyma subscription %+v does not have condition: %v", kySub, activatedCondition)
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) publishTestEvent() error {
@@ -237,7 +245,7 @@ func (f *eventBusFlow) publishTestEvent() error {
 			return fmt.Errorf("publish event failed: %v", err)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) publish(publishEventURL string) (*api.PublishResponse, error) {
@@ -310,7 +318,7 @@ func (f *eventBusFlow) checkSubscriberReceivedEvent() error {
 			return fmt.Errorf("wrong response: %s, want: %s", resp, expectedResp)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) cleanup() error {

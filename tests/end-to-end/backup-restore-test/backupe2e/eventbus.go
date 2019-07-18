@@ -35,6 +35,13 @@ const (
 	publishStatusEndpointURL = "http://event-bus-publish.kyma-system:8080/v1/status/ready"
 )
 
+var retryOptions = []retry.Option{
+	retry.Attempts(11), // at max (100 * (1 << 11)) / 1000 = 204,8 sec
+	retry.OnRetry(func(n uint, err error) {
+		fmt.Printf(".")
+	}),
+}
+
 // EventBusTest tests the Event Bus business logic after restoring Kyma from a backup
 type EventBusTest struct {
 	K8sInterface  k8sClientSet.Interface
@@ -171,7 +178,7 @@ func (f *eventBusFlow) createSubscriber() error {
 				}
 			}
 			return nil
-		})
+		}, retryOptions...)
 	}
 	return nil
 }
@@ -190,9 +197,10 @@ func (f *eventBusFlow) createEventActivation() error {
 			return fmt.Errorf("waiting for event activation %v to exist", eventActivation)
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
+// TODO: add retry loop
 func (f *eventBusFlow) createSubscription() error {
 	subscriberEventEndpointURL := "http://" + subscriberName + "." + f.namespace + ":9000/v1/events"
 	_, err := f.subsInterface.EventingV1alpha1().Subscriptions(f.namespace).Create(util.NewSubscription(subscriptionName, f.namespace, subscriberEventEndpointURL, eventType, "v1", srcID))
@@ -209,13 +217,13 @@ func (f *eventBusFlow) checkSubscriberStatus() error {
 	subscriberStatusEndpointURL := "http://" + subscriberName + "." + f.namespace + ":9000/v1/status"
 	return retry.Do(func() error {
 		return checkStatus(subscriberStatusEndpointURL)
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) checkPublisherStatus() error {
 	return retry.Do(func() error {
 		return checkStatus(publishStatusEndpointURL)
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) checkSubscriptionReady() error {
@@ -229,14 +237,14 @@ func (f *eventBusFlow) checkSubscriptionReady() error {
 			return nil
 		}
 		return fmt.Errorf("subscription %v does not have condition %+v", kySub, activatedCondition)
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) publishTestEvent() error {
 	return retry.Do(func() error {
 		_, err := f.publish(publishEventEndpointURL)
 		return err
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) publish(publishEventURL string) (*publishApi.PublishResponse, error) {
@@ -304,7 +312,7 @@ func (f *eventBusFlow) checkSubscriberReceivedEvent() error {
 			return fmt.Errorf("wrong response: %s, want: %s", resp, "test-event-1")
 		}
 		return nil
-	})
+	}, retryOptions...)
 }
 
 func (f *eventBusFlow) cleanup() error {
