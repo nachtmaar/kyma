@@ -150,6 +150,7 @@ func (f *eventBusFlow) deleteResources() error {
 	return nil
 }
 
+// Create a new subscriber deployment if it does not exist yet and wait until all pods are ready
 func (f *eventBusFlow) createSubscriber() error {
 	if _, err := f.k8sInterface.AppsV1().Deployments(f.namespace).Get(subscriberName, metaV1.GetOptions{}); err != nil {
 		if _, err := f.k8sInterface.AppsV1().Deployments(f.namespace).Create(util.NewSubscriberDeployment(subscriberImage)); err != nil {
@@ -160,34 +161,33 @@ func (f *eventBusFlow) createSubscriber() error {
 			return fmt.Errorf("create Subscriber service failed: %v", err)
 		}
 		return retry.Do(func() error {
-			var podReady bool
 			pods, err := f.k8sInterface.CoreV1().Pods(f.namespace).List(metaV1.ListOptions{LabelSelector: "app=" + subscriberName})
 			if err != nil {
 				return err
 			}
 			for _, pod := range pods.Items {
-				if podReady = isPodReady(&pod); !podReady {
-					break
+				if !isPodReady(&pod) {
+					return fmt.Errorf("pod is not ready: %v", pod)
 				}
 			}
-			if podReady {
-				return nil
-			}
-			return fmt.Errorf("at least one pod is not ready: %+v", pods.Items)
+			return nil
 		})
 	}
 	return nil
 }
 
+// Create an EventActivation
+// Retry in case of any error except resource already exists
 func (f *eventBusFlow) createEventActivation() error {
 	eventActivation := util.NewEventActivation(eventActivationName, f.namespace, srcID)
+
 	return retry.Do(func() error {
 		_, err := f.eaInterface.ApplicationconnectorV1alpha1().EventActivations(f.namespace).Create(eventActivation)
 		if err == nil {
 			return nil
 		}
 		if !strings.Contains(err.Error(), "already exists") {
-			return fmt.Errorf("event activation %+v already exists", eventActivation)
+			return fmt.Errorf("waiting for event activation %v to exist", eventActivation)
 		}
 		return nil
 	})
@@ -204,15 +204,11 @@ func (f *eventBusFlow) createSubscription() error {
 	return err
 }
 
+// Check the subscriber status until the http get call succeeds and until status code is 200
 func (f *eventBusFlow) checkSubscriberStatus() error {
 	subscriberStatusEndpointURL := "http://" + subscriberName + "." + f.namespace + ":9000/v1/status"
 	return retry.Do(func() error {
-		if res, err := http.Get(subscriberStatusEndpointURL); err != nil {
-			return err
-		} else if err := verifyStatusCode(res, http.StatusOK); err != nil {
-			return err
-		}
-		return nil
+		return checkStatus(subscriberStatusEndpointURL)
 	})
 }
 
@@ -232,7 +228,7 @@ func (f *eventBusFlow) checkSubscriptionReady() error {
 		if kySub.HasCondition(activatedCondition) {
 			return nil
 		}
-		return fmt.Errorf("subscription %+v does not have condition %+v", kySub, activatedCondition)
+		return fmt.Errorf("subscription %v does not have condition %+v", kySub, activatedCondition)
 	})
 }
 
@@ -346,6 +342,7 @@ func (f *eventBusFlow) cleanup() error {
 	return nil
 }
 
+// Check that an http get to the URL returns a 200 status code
 func checkStatus(statusEndpointURL string) error {
 	res, err := http.Get(statusEndpointURL)
 	if err != nil {
@@ -354,6 +351,7 @@ func checkStatus(statusEndpointURL string) error {
 	return verifyStatusCode(res, http.StatusOK)
 }
 
+// Verify that the http response has the given status code and return an error if not
 func verifyStatusCode(res *http.Response, expectedStatusCode int) error {
 	if res.StatusCode != expectedStatusCode {
 		return fmt.Errorf("status code is wrong, have: %d, want: %d", res.StatusCode, expectedStatusCode)
