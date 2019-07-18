@@ -121,8 +121,8 @@ func main() {
 		log.Printf("Error in creating event activation client: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
-	if !createEventActivation(subDetails.subscriberNamespace) {
-		log.Println("Error: Cannot create the event activation")
+	if err := createEventActivation(subDetails.subscriberNamespace); err != nil {
+		log.Printf("Error: Cannot create the event activation: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
@@ -132,8 +132,8 @@ func main() {
 		log.Printf("Error in creating subscription client: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
-	if !createSubscription(subDetails.subscriberNamespace, subscriptionName, subDetails.subscriberEventEndpointURL) {
-		log.Println("Error: Cannot create Kyma subscription")
+	if err := createSubscription(subDetails.subscriberNamespace, subscriptionName, subDetails.subscriberEventEndpointURL); err != nil {
+		log.Printf("Error: Cannot create Kyma subscription: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
@@ -143,8 +143,8 @@ func main() {
 		log.Printf("Error in creating headers subscription client: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
-	if !createSubscription(subDetails.subscriberNamespace, headersSubscriptionName, subDetails.subscriber3EventEndpointURL) {
-		log.Println("Error: Cannot create Kyma headers subscription")
+	if err := createSubscription(subDetails.subscriberNamespace, headersSubscriptionName, subDetails.subscriber3EventEndpointURL); err != nil {
+		log.Printf("Error: Cannot create Kyma headers subscription: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
@@ -154,32 +154,32 @@ func main() {
 	}
 
 	log.Println("Check Subscriber Status")
-	if !subDetails.checkSubscriberStatus() {
-		log.Println("Error: Cannot connect to Subscriber")
+	if err := subDetails.checkSubscriberStatus(); err != nil {
+		log.Printf("Error: Cannot connect to Subscriber: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
 	log.Println("Check Subscriber 3 Status")
-	if !subDetails.checkSubscriber3Status() {
-		log.Println("Error: Cannot connect to Subscriber 3")
+	if err := subDetails.checkSubscriber3Status(); err != nil {
+		log.Printf("Error: Cannot connect to Subscriber 3: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
 	log.Println("Check Publisher Status")
-	if !pubDetails.checkPublisherStatus() {
-		log.Println("Error: Cannot connect to Publisher")
+	if err := pubDetails.checkPublisherStatus(); err != nil {
+		log.Printf("Error: Cannot connect to Publisher: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
 	log.Println("Check Kyma subscription ready Status")
-	if !subDetails.checkSubscriptionReady(subscriptionName) {
-		log.Println("Error: Kyma Subscription not ready")
+	if err := subDetails.checkSubscriptionReady(subscriptionName); err != nil {
+		log.Printf("Error: Kyma Subscription not ready: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
 	log.Println("Check Kyma headers subscription ready Status")
-	if !subDetails.checkSubscriptionReady(headersSubscriptionName) {
-		log.Println("Error: Kyma Subscription not ready")
+	if err := subDetails.checkSubscriptionReady(headersSubscriptionName); err != nil {
+		log.Printf("Error: Kyma Subscription not ready: %v\n", err)
 		shutdown(fail, &subDetails)
 	}
 
@@ -384,7 +384,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEvent() error {
 			return fmt.Errorf("wrong response: %s, want: %s", resp, "test-event-1")
 		}
 		return nil
-	})
+	}, retry.Attempts(12))
 }
 
 func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error {
@@ -464,22 +464,6 @@ func dumpResponse(resp *http.Response) {
 	}
 }
 
-func checkStatusCode(res *http.Response, expectedStatusCode int) bool {
-	if res.StatusCode != expectedStatusCode {
-		log.Printf("Status code is wrong, have: %d, want: %d\n", res.StatusCode, expectedStatusCode)
-		return false
-	}
-	return true
-}
-
-func checkPublishStatus(statusEndpointURL string) error {
-	res, err := http.Get(statusEndpointURL)
-	if err != nil {
-		return err
-	}
-	return verifyStatusCode(res, http.StatusOK)
-}
-
 func verifyStatusCode(res *http.Response, expectedStatusCode int) error {
 	if res.StatusCode != expectedStatusCode {
 		return fmt.Errorf("status code is wrong, have: %d, want: %d", res.StatusCode, expectedStatusCode)
@@ -534,79 +518,70 @@ func createSubscriber(subscriberName string, subscriberNamespace string, sbscrIm
 	return nil
 }
 
-// TODO: why is there a retry loop at all?
-// we need to wait until the api server is reachable and accepting requests
-func createEventActivation(subscriberNamespace string) bool {
-	err := retry.Do(func() error {
+// Create EventActivation and wait for successful creation
+func createEventActivation(subscriberNamespace string) error {
+	return retry.Do(func() error {
 		_, err := eaClient.ApplicationconnectorV1alpha1().EventActivations(subscriberNamespace).Create(util.NewEventActivation(eventActivationName, subscriberNamespace, srcID))
 		if err == nil {
 			return nil
 		}
 		if !strings.Contains(err.Error(), "already exists") {
-			return fmt.Errorf("error in creating event activation - %v", err)
+			return err
 		}
 		return nil
 	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	return err == nil
 }
 
-func createSubscription(subscriberNamespace string, subName string, subscriberEventEndpointURL string) bool {
-	_, err := subClient.EventingV1alpha1().Subscriptions(subscriberNamespace).Create(util.NewSubscription(subName, subscriberNamespace, subscriberEventEndpointURL, eventType, "v1", srcID))
-	if err != nil {
+// Create Subscription and wait for successful creation
+func createSubscription(subscriberNamespace string, subName string, subscriberEventEndpointURL string) error {
+	return retry.Do(func() error {
+		_, err := subClient.EventingV1alpha1().Subscriptions(subscriberNamespace).Create(util.NewSubscription(subName, subscriberNamespace, subscriberEventEndpointURL, eventType, "v1", srcID))
+		if err == nil {
+			return nil
+		}
 		if !strings.Contains(err.Error(), "already exists") {
-			log.Printf("Error in creating subscription: %v\n", err)
-			return false
-		}
-	}
-	return true
-}
-
-func (subDetails *subscriberDetails) checkSubscriberStatus() bool {
-	err := retry.Do(func() error {
-		if res, err := http.Get(subDetails.subscriberStatusEndpointURL); err != nil {
 			return err
-		} else if !checkStatusCode(res, http.StatusOK) {
-			return fmt.Errorf("subscriber Server Status request returns: %v", res)
 		}
 		return nil
 	})
-	if err != nil {
-		log.Println(err)
-	}
-	return err == nil
 }
 
-func (subDetails *subscriberDetails) checkSubscriber3Status() bool {
-	err := retry.Do(func() error {
-		if res, err := http.Get(subDetails.subscriber3StatusEndpointURL); err != nil {
+// Check that the subscriber endpoint is reachable and returns a 200
+func (subDetails *subscriberDetails) checkSubscriberStatus() error {
+	return retry.Do(func() error {
+		res, err := http.Get(subDetails.subscriberStatusEndpointURL)
+		if err != nil {
 			return err
-		} else if !checkStatusCode(res, http.StatusOK) {
-			return fmt.Errorf("subscriber 3 Server Status request returns: %v", res)
 		}
-		return nil
+		return verifyStatusCode(res, http.StatusOK)
 	})
-	if err != nil {
-		fmt.Print(err)
-	}
-	return err == nil
 }
 
-func (pubDetails *publisherDetails) checkPublisherStatus() bool {
-	err := retry.Do(func() error {
-		return checkPublishStatus(pubDetails.publishStatusEndpointURL)
+// Check that the subscriber3 endpoint is reachable and returns a 200
+func (subDetails *subscriberDetails) checkSubscriber3Status() error {
+	return retry.Do(func() error {
+		res, err := http.Get(subDetails.subscriber3StatusEndpointURL)
+		if err != nil {
+			return err
+		}
+		return verifyStatusCode(res, http.StatusOK)
 	})
-	if err != nil {
-		log.Println(err)
-	}
-
-	return err == nil
 }
 
-func (subDetails *subscriberDetails) checkSubscriptionReady(subscriptionName string) bool {
-	err := retry.Do(func() error {
+// Check that the publisher endpoint is reachable and returns a 200
+func (pubDetails *publisherDetails) checkPublisherStatus() error {
+	return retry.Do(func() error {
+		res, err := http.Get(pubDetails.publishStatusEndpointURL)
+		if err != nil {
+			return err
+		}
+		return verifyStatusCode(res, http.StatusOK)
+	})
+}
+
+// Check that the subscription exists and has condition ready
+func (subDetails *subscriberDetails) checkSubscriptionReady(subscriptionName string) error {
+	return retry.Do(func() error {
 		var isReady bool
 		activatedCondition := subApis.SubscriptionCondition{Type: subApis.Ready, Status: subApis.ConditionTrue}
 		kySub, err := subClient.EventingV1alpha1().Subscriptions(subDetails.subscriberNamespace).Get(subscriptionName, metav1.GetOptions{})
@@ -618,8 +593,4 @@ func (subDetails *subscriberDetails) checkSubscriptionReady(subscriptionName str
 		}
 		return nil
 	})
-	if err != nil {
-		log.Println(err)
-	}
-	return err == nil
 }
