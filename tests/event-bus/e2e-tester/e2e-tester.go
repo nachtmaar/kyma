@@ -5,12 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/avast/retry-go"
 	api "github.com/kyma-project/kyma/components/event-bus/api/publish"
@@ -276,7 +277,7 @@ func shutdown(code int, subscriber *subscriberDetails) {
 	if eaClient != nil {
 		log.WithField("event_activation", eventActivationName).Info("delete test event activation")
 		if err := eaClient.ApplicationconnectorV1alpha1().EventActivations(subscriber.subscriberNamespace).Delete(eventActivationName, &metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-			log.WithField("error", err).Warn("delete Event Activation failed: %v", err)
+			log.WithField("error", err).Warn("delete Event Activation failed")
 		}
 	}
 	os.Exit(code)
