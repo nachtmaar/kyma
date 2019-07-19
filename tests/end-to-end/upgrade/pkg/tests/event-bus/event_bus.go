@@ -36,7 +36,7 @@ const (
 var (
 	randomInt    int
 	retryOptions = []retry.Option{
-		retry.Attempts(11), // at max (100 * (1 << 11)) / 1000 = 204,8 sec
+		retry.Attempts(13), // at max (100 * (1 << 11)) / 1000 = 819,2 sec
 		retry.OnRetry(func(n uint, err error) {
 			fmt.Printf(".")
 		}),
