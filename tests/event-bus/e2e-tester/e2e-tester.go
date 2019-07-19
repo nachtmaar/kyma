@@ -5,8 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -55,7 +55,7 @@ var (
 	eaClient     *eaClientSet.Clientset
 	subClient    *subscriptionClientSet.Clientset
 	retryOptions = []retry.Option{
-		retry.Attempts(13), // at max (100 * (1 << 11)) / 1000 = 819,2 sec
+		retry.Attempts(13), // at max (100 * (1 << 13)) / 1000 = 819,2 sec
 		retry.OnRetry(func(n uint, err error) {
 			fmt.Printf(".")
 		}),
@@ -82,6 +82,11 @@ type publisherDetails struct {
 }
 
 func main() {
+	// configure logger with text instead of json for easier reading in CI logs
+	log.SetFormatter(&log.TextFormatter{})
+	// show file and line number
+	log.SetReportCaller(true)
+
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	var subDetails subscriberDetails
 	var pubDetails publisherDetails
@@ -110,118 +115,118 @@ func main() {
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Printf("Error in getting cluster config: %v\n", err)
+		log.WithField("error", err).Error("error in getting cluster config")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Create the clientK8S")
+	log.Info("create the clientK8S")
 	clientK8S, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Printf("Failed to create a ClientSet: %v\n", err)
+		log.WithField("error", err).Error("failed to create a ClientSet")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Create a test event activation")
+	log.Info("create a test event activation")
 	eaClient, err = eaClientSet.NewForConfig(config)
 	if err != nil {
-		log.Printf("Error in creating event activation client: %v\n", err)
+		log.WithField("error", err).Error("error in creating event activation client")
 		shutdown(fail, &subDetails)
 	}
 	if err := createEventActivation(subDetails.subscriberNamespace); err != nil {
-		log.Printf("Error: Cannot create the event activation: %v\n", err)
+		log.WithField("error", err).Error("cannot create the event activation")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Create a test subscriptions")
+	log.Info("create a test subscriptions")
 	subClient, err = subscriptionClientSet.NewForConfig(config)
 	if err != nil {
-		log.Printf("Error in creating subscription client: %v\n", err)
+		log.WithField("error", err).Error("error in creating subscription client")
 		shutdown(fail, &subDetails)
 	}
 	if err := createSubscription(subDetails.subscriberNamespace, subscriptionName, subDetails.subscriberEventEndpointURL); err != nil {
-		log.Printf("Error: Cannot create Kyma subscription: %v\n", err)
+		log.WithField("error", err).Error("cannot create Kyma subscription")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Create a headers test subscription")
+	log.Info("create a headers test subscription")
 	subClient, err = subscriptionClientSet.NewForConfig(config)
 	if err != nil {
-		log.Printf("Error in creating headers subscription client: %v\n", err)
+		log.WithField("error", err).Error("error in creating headers subscription client")
 		shutdown(fail, &subDetails)
 	}
 	if err := createSubscription(subDetails.subscriberNamespace, headersSubscriptionName, subDetails.subscriber3EventEndpointURL); err != nil {
-		log.Printf("Error: Cannot create Kyma headers subscription: %v\n", err)
+		log.WithField("error", err).Error("cannot create Kyma headers subscription")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Create Subscriber")
+	log.Info("create Subscriber")
 	if err := createSubscriber(util.SubscriberName, subDetails.subscriberNamespace, subDetails.subscriberImage); err != nil {
-		log.Printf("Create Subscriber failed: %v\n", err)
+		log.WithField("error", err).Error("create Subscriber failed")
 	}
 
-	log.Println("Check Subscriber Status")
+	log.Info("check Subscriber Status")
 	if err := subDetails.checkSubscriberStatus(); err != nil {
-		log.Printf("Error: Cannot connect to Subscriber: %v\n", err)
+		log.WithField("error", err).Error("cannot connect to Subscriber")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Check Subscriber 3 Status")
+	log.Info("check Subscriber 3 Status")
 	if err := subDetails.checkSubscriber3Status(); err != nil {
-		log.Printf("Error: Cannot connect to Subscriber 3: %v\n", err)
+		log.WithField("error", err).Info("cannot connect to Subscriber 3")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Check Publisher Status")
+	log.Info("check Publisher Status")
 	if err := pubDetails.checkPublisherStatus(); err != nil {
-		log.Printf("Error: Cannot connect to Publisher: %v\n", err)
+		log.WithField("error", err).Error("cannot connect to Publisher")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Check Kyma subscription ready Status")
+	log.Info("check Kyma subscription ready Status")
 	if err := subDetails.checkSubscriptionReady(subscriptionName); err != nil {
-		log.Printf("Error: Kyma Subscription not ready: %v\n", err)
+		log.WithField("error", err).Error("kyma Subscription not ready")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Check Kyma headers subscription ready Status")
+	log.Info("check Kyma headers subscription ready Status")
 	if err := subDetails.checkSubscriptionReady(headersSubscriptionName); err != nil {
-		log.Printf("Error: Kyma Subscription not ready: %v\n", err)
+		log.WithField("error", err).Error("kyma Subscription not ready")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Publish an event")
+	log.Info("publish an event")
 	err = retry.Do(func() error {
 		_, err := publishTestEvent(pubDetails.publishEventEndpointURL)
 		return err
 	}, retryOptions...)
 	if err != nil {
-		log.Printf("Error: Publish event failed: %v\n", err)
+		log.WithField("error", err).Error("publish event failed")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Try to read the response from subscriber server")
+	log.Info("try to read the response from subscriber server")
 	if err := subDetails.checkSubscriberReceivedEvent(); err != nil {
-		log.Printf("Error: Cannot get the test event from subscriber: %v\n", err)
+		log.WithField("error", err).Error("cannot get the test event from subscriber")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Publish headers event")
+	log.Info("publish headers event")
 	err = retry.Do(func() error {
 		_, err := publishHeadersTestEvent(pubDetails.publishEventEndpointURL)
 		return err
 	}, retryOptions...)
 	if err != nil {
-		log.Printf("Error: Publish headers event failed: %v\n", err)
+		log.WithField("error", err).Error("publish headers event failed")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Try to read the response from subscriber 3 server")
+	log.Info("try to read the response from subscriber 3 server")
 	if err := subDetails.checkSubscriberReceivedEventHeaders(); err != nil {
-		log.Printf("Error: Cannot get the test event from subscriber 3: %v\n", err)
+		log.WithField("error", err).Error("cannot get the test event from subscriber 3")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Println("Successfully finished")
+	log.Info("successfully finished")
 	shutdown(success, &subDetails)
 }
 
@@ -237,41 +242,41 @@ func initSubscriberUrls(subDetails *subscriberDetails) {
 }
 
 func shutdown(code int, subscriber *subscriberDetails) {
-	log.Println("Send shutdown request to Subscriber")
+	log.Info("send shutdown request to Subscriber")
 	if _, err := http.Post(subscriber.subscriberShutdownEndpointURL, "application/json", strings.NewReader(`{"shutdown": "true"}`)); err != nil {
-		log.Printf("Warning: Shutdown Subscriber failed: %v", err)
+		log.WithField("error", err).Warning("shutdown Subscriber failed")
 	}
-	log.Println("Delete Subscriber deployment")
+	log.Info("delete Subscriber deployment")
 	deletePolicy := metav1.DeletePropagationForeground
 	gracePeriodSeconds := int64(0)
 
 	if err := clientK8S.AppsV1().Deployments(subscriber.subscriberNamespace).Delete(util.SubscriberName,
 		&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds, PropagationPolicy: &deletePolicy}); err != nil {
-		log.Printf("Warning: Delete Subscriber Deployment failed: %v", err)
+		log.WithField("error", err).Warn("delete Subscriber Deployment failed")
 	}
-	log.Println("Delete Subscriber service")
+	log.Info("delete Subscriber service")
 	if err := clientK8S.CoreV1().Services(subscriber.subscriberNamespace).Delete(util.SubscriberName,
 		&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds}); err != nil {
-		log.Printf("Warning: Delete Subscriber Service failed: %v", err)
+		log.WithField("error", err).Warn("delete Subscriber Service failed")
 	}
 	if subClient != nil {
-		log.Printf("Delete test subscription: %v\n", subscriptionName)
+		log.WithField("subscription", subscriptionName).Info("delete test subscription")
 		if err := subClient.EventingV1alpha1().Subscriptions(subscriber.subscriberNamespace).Delete(subscriptionName,
 			&metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-			log.Printf("Warning: Delete Subscription failed: %v", err)
+			log.WithField("error", err).Warn("delete Subscription failed")
 		}
 	}
 	if subClient != nil {
-		log.Printf("Delete headers test subscription: %v\n", subscriptionName)
+		log.WithField("subscription", subscriptionName).Info("delete headers test subscription")
 		if err := subClient.EventingV1alpha1().Subscriptions(subscriber.subscriberNamespace).Delete(headersSubscriptionName,
 			&metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-			log.Printf("Warning: Delete Subscription failed: %v", err)
+			log.WithField("error", err).Warn("delete Subscription failed")
 		}
 	}
 	if eaClient != nil {
-		log.Printf("Delete test event activation: %v\n", eventActivationName)
+		log.WithField("event_activation", eventActivationName).Info("delete test event activation")
 		if err := eaClient.ApplicationconnectorV1alpha1().EventActivations(subscriber.subscriberNamespace).Delete(eventActivationName, &metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-			log.Printf("Warning: Delete Event Activation failed: %v", err)
+			log.WithField("error", err).Warn("delete Event Activation failed: %v", err)
 		}
 	}
 	os.Exit(code)
@@ -280,13 +285,19 @@ func shutdown(code int, subscriber *subscriberDetails) {
 func publishTestEvent(publishEventURL string) (*api.Response, error) {
 	payload := fmt.Sprintf(
 		`{"source-id": "%s","event-type":"%s","event-type-version":"%s","event-time":"2018-11-02T22:08:41+00:00","data":"test-event-1"}`, srcID, eventType, eventTypeVersion)
-	log.Printf("event to be published: %v\n", payload)
+	log.WithField("event", payload).Info("event to be published")
 	res, err := http.Post(publishEventURL, "application/json", strings.NewReader(payload))
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warn(err)
+		}
+	}()
 	if err != nil {
-		log.Printf("Post request failed: %v\n", err)
 		return nil, err
 	}
-	dumpResponse(res)
+	if _, err := httputil.DumpResponse(res, true); err != nil {
+		return nil, err
+	}
 	if err := verifyStatusCode(res, 200); err != nil {
 		return nil, err
 	}
@@ -295,17 +306,11 @@ func publishTestEvent(publishEventURL string) (*api.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Println(err)
-		}
-	}()
 	err = json.Unmarshal(body, &respObj)
 	if err != nil {
-		log.Printf("Unmarshal error: %v", err)
 		return nil, err
 	}
-	log.Printf("Publish response object: %+v", respObj)
+	log.WithField("response", respObj).Info("publish response object")
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
 	}
@@ -315,7 +320,7 @@ func publishTestEvent(publishEventURL string) (*api.Response, error) {
 func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 	payload := fmt.Sprintf(
 		`{"source-id": "%s","event-type":"%s","event-type-version":"%s","event-time":"2018-11-02T22:08:41+00:00","data":"headers-test-event"}`, srcID, eventType, eventTypeVersion)
-	log.Printf("event to be published: %v\n", payload)
+	log.WithField("event", payload).Info("event to be published")
 
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", publishEventURL, strings.NewReader(payload))
@@ -327,12 +332,18 @@ func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 	req.Header.Add(eventTypeVersionHeader, ceEventTypeVersionHeaderValue)
 	req.Header.Add(customHeader, customHeaderValue)
 	res, err := client.Do(req)
-
 	if err != nil {
-		log.Printf("Post request failed: %v\n", err)
+		log.WithField("error", err).Error("post request failed")
 		return nil, err
 	}
-	dumpResponse(res)
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Warn(err)
+		}
+	}()
+	if _, err := httputil.DumpResponse(res, true); err != nil {
+		return nil, err
+	}
 	if err := verifyStatusCode(res, 200); err != nil {
 		return nil, err
 	}
@@ -341,17 +352,11 @@ func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Print(err)
-		}
-	}()
 	err = json.Unmarshal(body, &respObj)
 	if err != nil {
-		log.Printf("Unmarshal error: %v", err)
 		return nil, err
 	}
-	log.Printf("Publish response object: %+v", respObj)
+	log.WithField("response", respObj).Info("publish response object")
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
 	}
@@ -364,7 +369,14 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEvent() error {
 		if err != nil {
 			return err
 		}
-		dumpResponse(res)
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				log.Warn(err)
+			}
+		}()
+		if _, err := httputil.DumpResponse(res, true); err != nil {
+			return err
+		}
 		if err := verifyStatusCode(res, 200); err != nil {
 			return err
 		}
@@ -377,12 +389,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEvent() error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Subscriber response: %s\n", resp)
-		defer func() {
-			if err := res.Body.Close(); err != nil {
-				log.Println(err)
-			}
-		}()
+		log.WithField("response", resp).Info("subscriber response")
 		if len(resp) == 0 {
 			return errors.New("no event received by subscriber")
 		}
@@ -397,12 +404,17 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 	return retry.Do(func() error {
 		res, err := http.Get(subDetails.subscriber3ResultsEndpointURL)
 		if err != nil {
-			log.Printf("Get request failed: %v\n", err)
 			return err
 		}
-		dumpResponse(res)
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				log.Warn(err)
+			}
+		}()
+		if _, err := httputil.DumpResponse(res, true); err != nil {
+			return err
+		}
 		if err := verifyStatusCode(res, 200); err != nil {
-			log.Printf("Get request failed: %v", err)
 			return err
 		}
 		body, err := ioutil.ReadAll(res.Body)
@@ -413,12 +425,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 		if err := json.Unmarshal(body, &resp); err != nil {
 			return err
 		}
-		log.Printf("Subscriber 3 response: %v\n", resp)
-		defer func() {
-			if err := res.Body.Close(); err != nil {
-				log.Println(err)
-			}
-		}()
+		log.WithField("response", resp).Info("subscriber 3 response")
 		if len(resp) == 0 {
 			return errors.New("no event received by subscriber")
 		}
@@ -458,18 +465,6 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 	}, retryOptions...)
 }
 
-func dumpResponse(resp *http.Response) {
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	_, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func verifyStatusCode(res *http.Response, expectedStatusCode int) error {
 	if res.StatusCode != expectedStatusCode {
 		return fmt.Errorf("status code is wrong, have: %d, want: %d", res.StatusCode, expectedStatusCode)
@@ -488,14 +483,14 @@ func isPodReady(pod *apiv1.Pod) bool {
 
 func createSubscriber(subscriberName string, subscriberNamespace string, sbscrImg string) error {
 	if _, err := clientK8S.AppsV1().Deployments(subscriberNamespace).Get(subscriberName, metav1.GetOptions{}); err != nil {
-		log.Println("Create Subscriber deployment")
+		log.Info("create Subscriber deployment")
 		if _, err := clientK8S.AppsV1().Deployments(subscriberNamespace).Create(util.NewSubscriberDeployment(sbscrImg)); err != nil {
-			log.Printf("Create Subscriber deployment: %v\n", err)
+			log.WithField("error", err).Error("create Subscriber deployment failed")
 			return err
 		}
-		log.Println("Create Subscriber service")
+		log.Info("create Subscriber service")
 		if _, err := clientK8S.CoreV1().Services(subscriberNamespace).Create(util.NewSubscriberService()); err != nil {
-			log.Printf("Create Subscriber service failed: %v\n", err)
+			log.WithField("error", err).Error("create Subscriber service failed")
 			return err
 		}
 
@@ -517,7 +512,7 @@ func createSubscriber(subscriberName string, subscriberNamespace string, sbscrIm
 			if !podReady {
 				return podNotReady
 			}
-			log.Println("Subscriber created")
+			log.Info("subscriber created")
 			return nil
 		}, retryOptions...)
 	}
