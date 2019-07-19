@@ -36,7 +36,7 @@ const (
 )
 
 var retryOptions = []retry.Option{
-	retry.Attempts(13), // at max (100 * (1 << 11)) / 1000 = 819,2 sec
+	retry.Attempts(13), // at max (100 * (1 << 13)) / 1000 = 819,2 sec
 	retry.OnRetry(func(n uint, err error) {
 		fmt.Printf(".")
 	}),
@@ -106,12 +106,20 @@ func (eb *EventBusTest) DeleteResources(namespace string) {
 }
 
 func (eb *EventBusTest) newFlow(namespace string) *eventBusFlow {
-	return &eventBusFlow{
+
+	logger := logrus.New()
+	// configure logger with text instead of json for easier reading in CI logs
+	logger.Formatter = &logrus.TextFormatter{}
+	// show file and line number
+	logger.SetReportCaller(true)
+	res := &eventBusFlow{
 		namespace:     namespace,
 		k8sInterface:  eb.K8sInterface,
 		eaInterface:   eb.EaInterface,
 		subsInterface: eb.SubsInterface,
+		log:           logger,
 	}
+	return res
 }
 
 func (f *eventBusFlow) createResources() error {
