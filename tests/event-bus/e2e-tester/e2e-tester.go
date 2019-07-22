@@ -130,7 +130,7 @@ func main() {
 	log.Info("create a test event activation")
 	eaClient, err = eaClientSet.NewForConfig(config)
 	if err != nil {
-		log.WithField("error", err).Error("error in creating event activation client")
+		log.WithField("error", err).Error("error in creating EventActivation client")
 		shutdown(fail, &subDetails)
 	}
 	if err := createEventActivation(subDetails.subscriberNamespace); err != nil {
@@ -138,10 +138,10 @@ func main() {
 		shutdown(fail, &subDetails)
 	}
 
-	log.Info("create a test subscriptions")
+	log.Info("create a test Subscription")
 	subClient, err = subscriptionClientSet.NewForConfig(config)
 	if err != nil {
-		log.WithField("error", err).Error("error in creating subscription client")
+		log.WithField("error", err).Error("error in creating Subscription client")
 		shutdown(fail, &subDetails)
 	}
 	if err := createSubscription(subDetails.subscriberNamespace, subscriptionName, subDetails.subscriberEventEndpointURL); err != nil {
@@ -217,11 +217,11 @@ func main() {
 		return err
 	}, retryOptions...)
 	if err != nil {
-		log.WithField("error", err).Error("publish headers event failed")
+		log.WithField("error", err).Error("publish for an event with headers failed")
 		shutdown(fail, &subDetails)
 	}
 
-	log.Info("try to read the response from subscriber 3 server")
+	log.Info("try to read the response from v3 endpoint of the subscriber")
 	if err := subDetails.checkSubscriberReceivedEventHeaders(); err != nil {
 		log.WithField("error", err).Error("cannot get the test event from subscriber 3")
 		shutdown(fail, &subDetails)
@@ -288,14 +288,14 @@ func publishTestEvent(publishEventURL string) (*api.Response, error) {
 		`{"source-id": "%s","event-type":"%s","event-type-version":"%s","event-time":"2018-11-02T22:08:41+00:00","data":"test-event-1"}`, srcID, eventType, eventTypeVersion)
 	log.WithField("event", payload).Info("event to be published")
 	res, err := http.Post(publishEventURL, "application/json", strings.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
 			log.Warn(err)
 		}
 	}()
-	if err != nil {
-		return nil, err
-	}
 	if _, err := httputil.DumpResponse(res, true); err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func publishTestEvent(publishEventURL string) (*api.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.WithField("response", respObj).Info("publish response object")
+	log.WithField("response", string(body)).Info("publish response object")
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
 	}
@@ -357,7 +357,7 @@ func publishHeadersTestEvent(publishEventURL string) (*api.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.WithField("response", respObj).Info("publish response object")
+	log.WithField("response", string(body)).Info("publish response object")
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
 	}
@@ -426,7 +426,7 @@ func (subDetails *subscriberDetails) checkSubscriberReceivedEventHeaders() error
 		if err := json.Unmarshal(body, &resp); err != nil {
 			return err
 		}
-		log.WithField("response", resp).Info("subscriber 3 response")
+		log.WithField("response", resp).Info("response for v3 endpoint of the subscriber")
 		if len(resp) == 0 {
 			return errors.New("no event received by subscriber")
 		}

@@ -175,7 +175,7 @@ func (f *eventBusFlow) createEventActivation() error {
 			return nil
 		}
 		if !strings.Contains(err.Error(), "already exists") {
-			return fmt.Errorf("error in creating event activation: %v", err)
+			return fmt.Errorf("error in creating EventActivation: %v", err)
 		}
 		return nil
 	}, retryOptions...)
@@ -209,7 +209,7 @@ func (f *eventBusFlow) checkSubscriberStatus() error {
 }
 
 func (f *eventBusFlow) checkPublisherStatus() error {
-	f.log.Infof("check Publisher status")
+	f.log.Info("check Publisher status")
 
 	return retry.Do(func() error {
 		if err := checkStatus(publishStatusEndpointURL); err != nil {
@@ -273,7 +273,7 @@ func (f *eventBusFlow) publish(publishEventURL string) (*api.PublishResponse, er
 		}
 	}()
 	err = json.Unmarshal(body, &respObj)
-	f.log.WithField("response", respObj).Infof("publish response object")
+	f.log.WithField("response", string(body)).Info("publish response object")
 	if len(respObj.EventID) == 0 {
 		return nil, fmt.Errorf("empty respObj.EventID")
 	}
@@ -340,12 +340,12 @@ func (f *eventBusFlow) cleanup() error {
 		f.log.WithField("error", err).Warn("delete Subscriber Service failed")
 	}
 
-	f.log.WithField("subscription", subscriptionName).Info("delete test subscription")
+	f.log.WithField("subscription", subscriptionName).Info("delete test Subscription")
 	if err := f.subsInterface.EventingV1alpha1().Subscriptions(f.namespace).Delete(subscriptionName, &metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-		f.log.WithField("error", err).Warn("delete subscription failed", err)
+		f.log.WithField("error", err).Warn("delete Subscription failed", err)
 	}
 
-	f.log.WithField("event_activation", eventActivationName).Info("delete test event activation")
+	f.log.WithField("event_activation", eventActivationName).Info("delete test EventActivation")
 	if err := f.eaInterface.ApplicationconnectorV1alpha1().EventActivations(f.namespace).Delete(eventActivationName, &metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
 		f.log.WithField("error", err).Warn("delete event activation failed")
 	}
