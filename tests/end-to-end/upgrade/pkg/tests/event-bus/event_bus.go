@@ -347,7 +347,7 @@ func (f *eventBusFlow) cleanup() error {
 
 	f.log.WithField("event_activation", eventActivationName).Info("delete test EventActivation")
 	if err := f.eaInterface.ApplicationconnectorV1alpha1().EventActivations(f.namespace).Delete(eventActivationName, &metav1.DeleteOptions{PropagationPolicy: &deletePolicy}); err != nil {
-		f.log.WithField("error", err).Warn("delete event activation failed")
+		f.log.WithField("error", err).Warn("delete EventActivation failed")
 	}
 
 	return nil
