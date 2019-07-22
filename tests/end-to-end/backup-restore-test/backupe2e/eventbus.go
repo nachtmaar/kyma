@@ -208,16 +208,16 @@ func (f *eventBusFlow) createEventActivation() error {
 	}, retryOptions...)
 }
 
-// TODO: add retry loop
 func (f *eventBusFlow) createSubscription() error {
 	subscriberEventEndpointURL := "http://" + subscriberName + "." + f.namespace + ":9000/v1/events"
-	_, err := f.subsInterface.EventingV1alpha1().Subscriptions(f.namespace).Create(util.NewSubscription(subscriptionName, f.namespace, subscriberEventEndpointURL, eventType, "v1", srcID))
-	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
-			return fmt.Errorf("error in creating subscription: %v", err)
+	return retry.Do(func() error {
+		if _, err := f.subsInterface.EventingV1alpha1().Subscriptions(f.namespace).Create(util.NewSubscription(subscriptionName, f.namespace, subscriberEventEndpointURL, eventType, "v1", srcID)); err != nil {
+			if !strings.Contains(err.Error(), "already exists") {
+				return fmt.Errorf("error in creating subscription: %v", err)
+			}
 		}
-	}
-	return err
+		return nil
+	}, retryOptions...)
 }
 
 // Check the subscriber status until the http get call succeeds and until status code is 200
