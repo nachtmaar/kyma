@@ -10,7 +10,7 @@ global:
       version: "ed26afa1"
     director:
       dir:
-      version: "d50050db"
+      version: "052677e3"
     gateway:
       dir:
       version: "e3e84b72"
@@ -19,7 +19,7 @@ global:
       version: "e3e84b72"
     schema_migrator:
       dir:
-      version: "526344b9"
+      version: "854b9672"
     provisioner:
       dir:
       version: "f5e3e596"
@@ -31,7 +31,7 @@ global:
     tests:
       e2e:
         dir:
-        version: "02bdbf22"
+        version: "86a96397"
       connector:
         dir:
         version: "32b69555"
@@ -123,19 +123,19 @@ global:
           api:
             url: http://compass-director.compass-system.svc.cluster.local:3000/tenant-mapping
             retry:
-              number: 3
-              delayInMilliseconds: 2000
+              number_of_retries: 3
+              delay_in_milliseconds: 2000
       certificateResolverService:
         config:
           api:
             url: http://compass-connector.compass-system.svc.cluster.local:8080/v1/certificate/data/resolve
             retry:
-              number: 3
-              delayInMilliseconds: 2000
+              number_of_retries: 3
+              delay_in_milliseconds: 2000
       tokenResolverService:
         config:
           api:
             url: http://compass-connector.compass-system.svc.cluster.local:8080/v1/tokens/resolve
             retry:
-              number: 3
-              delayInMilliseconds: 2000
+              number_of_retries: 3
+              delay_in_milliseconds: 2000
